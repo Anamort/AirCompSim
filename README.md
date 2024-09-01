@@ -19,8 +19,8 @@ This is the module where the simulation starts. It is responsible for handling t
 queue and creating the corresponding user types, user mobility, and UAV policies. Moreover, it provides a detailed 
 logging mechanism including the events, task offloading, UAV flying, and task processing so that it allows a detailed 
 debugging option for the researchers. Furthermore, it saves the results of the repeated simulations as a *csv* 
-file therefore after a detailed experiment it is straightforward to process the results using various libraries such as
-*pandas*.
+file(s) therefore after a detailed experiment it is straightforward to process the results using various libraries such as
+*pandas*. *Plots.py* can be directly used after the completion of a simulation.
 
 ### Server
 
