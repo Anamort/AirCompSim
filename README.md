@@ -8,7 +8,7 @@ policies for UAVs. Moreover, it also provides an event mechanism for deep reinfo
 and sophisticated UAV policies such as where to fly and when to fly can be investigated. Furthermore, since the 
 essential results are logged and stored, it provides an easy mechanism to plot the related results after the 
 experiments. If you want to use this implementation in your research, please cite 
-our paper [[1]](https://arxiv.org/pdf/2409.00689)
+our paper [[1]](https://arxiv.org/pdf/2409.00689).
 
 ![](images/AirCompSim.png)
 
