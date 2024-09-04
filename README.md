@@ -7,7 +7,8 @@ the corresponding parameters, add new scenarios including dynamic events such as
 policies for UAVs. Moreover, it also provides an event mechanism for deep reinforcement learning (DRL) so that smart 
 and sophisticated UAV policies such as where to fly and when to fly can be investigated. Furthermore, since the 
 essential results are logged and stored, it provides an easy mechanism to plot the related results after the 
-experiments.
+experiments. If you want to use this implementation in your research, please cite 
+our paper [[1]](https://arxiv.org/pdf/2409.00689)
 
 ![](images/AirCompSim.png)
 
@@ -95,3 +96,7 @@ settings, AirCompSim only provides the skeleton that can be adapted to the relat
 ![](images/AvgServiceTime.png)
 ![](images/AppBasedTaskSuccess-80-Users.png)
 ![](images/OffloadedTaskPercentage-15-UAVs.png)
+
+
+## Publications
+**[1]** B. Yamansavascilar, A. Ozgovde, and C. Ersoy, "[AirCompSim: A Discrete Event Simulator for Air Computing](https://arxiv.org/pdf/2409.00689)," *arXiv preprint*, arXiv: 2409.00689, 2024.
