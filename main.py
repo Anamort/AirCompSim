@@ -727,7 +727,8 @@ class Simulation(object):
         for uav in UAV.uavs:
             utilization = uav.getUtilization(timeLimit)
             uavResults["UAVUtilization"].append(utilization)
-            uavResults["Trajectory"].append(uav.getTrajectory())
+            trajectory = [[loc.x, loc.y] for loc in uav.getTrajectory()]
+            uavResults["Trajectory"].append(trajectory)
 
         appResults = pd.DataFrame(appResults)
         edgeResults = pd.DataFrame(edgeResults)
