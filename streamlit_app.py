@@ -55,6 +55,19 @@ def list_pdf_files(results_dir: Path) -> list[Path]:
     return sorted(results_dir.glob("*.pdf"))
 
 
+def display_safe(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy where columns Arrow cannot serialize (e.g. lists of
+    coordinates or other Python objects) are converted to strings so that
+    st.dataframe can render them without raising ArrowInvalid."""
+    safe = df.copy()
+    for column in safe.columns:
+        if safe[column].dtype == object:
+            safe[column] = safe[column].apply(
+                lambda value: value if isinstance(value, (str, int, float, bool)) or value is None else str(value)
+            )
+    return safe
+
+
 st.set_page_config(page_title="AirCompSim", layout="wide")
 st.title("AirCompSim Experiment Dashboard")
 st.caption("Configure and run air computing simulations without editing main.py")
@@ -147,13 +160,13 @@ if "app_results" in st.session_state:
     metric_cols[2].metric("Total tasks", f"{summary['total_tasks']:.0f}")
 
     st.subheader("Application results")
-    st.dataframe(st.session_state["app_results"], use_container_width=True)
+    st.dataframe(display_safe(st.session_state["app_results"]), use_container_width=True)
 
     st.subheader("Edge results")
-    st.dataframe(st.session_state["edge_results"], use_container_width=True)
+    st.dataframe(display_safe(st.session_state["edge_results"]), use_container_width=True)
 
     st.subheader("UAV results")
-    st.dataframe(st.session_state["uav_results"], use_container_width=True)
+    st.dataframe(display_safe(st.session_state["uav_results"]), use_container_width=True)
 
     results_dir = Path(st.session_state.get("last_results_dir", "results"))
     if results_dir.exists():
