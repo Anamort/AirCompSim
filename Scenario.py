@@ -33,7 +33,9 @@ class Scenario(object):
                  edgeRadius=100,
                  edgePower=100,
                  uavPower=100,
-                 altitude=200):
+                 altitude=200,
+                 generateEdgeRadiusPlot=False,
+                 outputDir=None):
         self.numberOfUsers = numberOfUsers
         self.testNumber = testNo
         self.scenarioName = scenario
@@ -57,6 +59,8 @@ class Scenario(object):
         self.isDoubled = False  # for earthquake scenario
         self.isDRL = False  # for DRL-based studies
         self.isMovementStart = False
+        self.generateEdgeRadiusPlot = generateEdgeRadiusPlot
+        self.outputDir = outputDir
 
 
     def basicEdgeScenario(self):
@@ -69,15 +73,20 @@ class Scenario(object):
 
         edgeLocationsX = [100, 300, 100, 300]
         edgeLocationsY = [300, 300, 100, 100]
-        plt.figure()
-        plt.scatter(edgeLocationsX, edgeLocationsY, color="red")  # , alpha=0.2, markersize=50
-        for uavX, uavY in zip(edgeLocationsX, edgeLocationsY):
-            circle1 = plt.Circle((uavX, uavY), self.edgeRadius, color='red', alpha=0.2)
-            plt.gca().add_patch(circle1)
-        plt.xlim(0, 400)
-        plt.ylim(0, 400)
-
-        plt.savefig("Edge-Radius.pdf")
+        if self.generateEdgeRadiusPlot:
+            plt.figure()
+            plt.scatter(edgeLocationsX, edgeLocationsY, color="red")
+            for uavX, uavY in zip(edgeLocationsX, edgeLocationsY):
+                circle1 = plt.Circle((uavX, uavY), self.edgeRadius, color='red', alpha=0.2)
+                plt.gca().add_patch(circle1)
+            plt.xlim(0, 400)
+            plt.ylim(0, 400)
+            edge_plot_path = "Edge-Radius.pdf"
+            if self.outputDir:
+                import os
+                edge_plot_path = os.path.join(self.outputDir, edge_plot_path)
+            plt.savefig(edge_plot_path)
+            plt.close()
 
 
         EdgeServer(capacity=self.edgeCapacity, location=edgeLocation1, radius=self.edgeRadius, power=self.edgePower)

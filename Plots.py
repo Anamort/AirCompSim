@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
+from typing import Optional, Union
+
+from experiment_config import ExperimentConfig
 
 
 '''
@@ -13,11 +17,20 @@ class Plots(object):
                  numberOfUAVs,
                  uavFlyPolicy,
                  uavWaitingPolicy,
+                 results_dir: Union[str, Path] = ".",
                  ):
-        self.appResults = pd.read_csv("AppResults.csv")
-        self.edgeResults = pd.read_csv("EdgeResults.csv")
-        self.uavResults = pd.read_csv("UavResults.csv")
-        self.scenarioResults = pd.read_csv("ScenarioResults.csv")
+        results_dir = Path(results_dir)
+        self.appResults = pd.read_csv(results_dir / "AppResults.csv")
+        self.edgeResults = pd.read_csv(results_dir / "EdgeResults.csv")
+        self.uavResults = pd.read_csv(results_dir / "UavResults.csv")
+        scenario_path = results_dir / "ScenarioResults.csv"
+        self.scenarioResults = pd.DataFrame()
+        if scenario_path.exists() and scenario_path.stat().st_size > 0:
+            try:
+                self.scenarioResults = pd.read_csv(scenario_path)
+            except pd.errors.EmptyDataError:
+                self.scenarioResults = pd.DataFrame()
+        self.results_dir = results_dir
 
         self.numberOfEdgeServersList = numberOfServers
         self.numberOfUsersList = numberOfUsers
@@ -60,7 +73,7 @@ class Plots(object):
         plt.ylim(0, 1.05)
         plt.xticks([r + barWidth for r in range(len(self.numberOfUsersList))], self.numberOfUsersList)
 
-        plt.savefig("OffloadedTaskPercentage-"+str(numberOfUAVs)+"-UAVs.pdf")
+        plt.savefig(self.results_dir / ("OffloadedTaskPercentage-"+str(numberOfUAVs)+"-UAVs.pdf"))
 
 
 
@@ -81,7 +94,7 @@ class Plots(object):
         plt.xlabel("Number of Users")
         plt.ylabel("Avg Number of Tasks")
 
-        plt.savefig("TotalTask.pdf")
+        plt.savefig(self.results_dir / "TotalTask.pdf")
 
 
     def getAppResults(self, numberOfUsers):
@@ -106,7 +119,7 @@ class Plots(object):
         plt.ylim(0, 105)
         plt.xticks(self.numberOfUAVsList)
 
-        plt.savefig("AppBasedTaskSuccess-"+str(numberOfUsers)+"-Users.pdf")
+        plt.savefig(self.results_dir / ("AppBasedTaskSuccess-"+str(numberOfUsers)+"-Users.pdf"))
 
 
     def getGeneralResults(self, uavWaitingTime):
@@ -130,7 +143,7 @@ class Plots(object):
         plt.ylabel("Avg Task Success Rate")
         plt.ylim(0, 105)
 
-        plt.savefig("Overall-res-waiting-"+str(uavWaitingTime)+"-time.pdf")
+        plt.savefig(self.results_dir / ("Overall-res-waiting-"+str(uavWaitingTime)+"-time.pdf"))
 
 
     def getEdgeUtilization(self):
@@ -153,7 +166,7 @@ class Plots(object):
         plt.ylabel("Avg Edge Utilization")
         plt.ylim(0, 105)
 
-        plt.savefig("EdgeUtilization.pdf")
+        plt.savefig(self.results_dir / "EdgeUtilization.pdf")
 
     def getUAVUtilization(self):
         res = np.zeros((len(self.numberOfUsersList), len(self.numberOfUAVsList)))
@@ -175,7 +188,7 @@ class Plots(object):
         plt.ylabel("Avg UAV Utilization")
         plt.ylim(0, 105)
 
-        plt.savefig("UAVUtilization.pdf")
+        plt.savefig(self.results_dir / "UAVUtilization.pdf")
 
     def getAvgServiceTime(self):
         # QueueingDelays
@@ -198,42 +211,55 @@ class Plots(object):
         plt.xlabel("Number of Users")
         plt.ylabel("Avg Service Time (s)")
 
-        plt.savefig("AvgServiceTime.pdf")
+        plt.savefig(self.results_dir / "AvgServiceTime.pdf")
 
 
 
 
-if __name__ == '__main__':
-    # TODO: Take these from a configuration file based on a scenario
-    numberOfUsers = [20, 40, 60, 80, 100]
-    numberOfServers = [4]
-    numberOfUAVs = [0, 5, 10, 15, 20]
-    uavFlyPolicy = ["LSI"]
-    uavWaitingPolicy = [100]  # seconds
 
-    #edgeServerRadius = [50, 100, 150, 200]
-    uavRadius = [80]
 
-    userMobilityPolicy = ["Mobile"]
+def generate_plots(config: ExperimentConfig, results_dir: Union[str, Path]) -> Plots:
+    plots = Plots(
+        numberOfServers=config.number_of_servers,
+        numberOfUsers=config.number_of_users,
+        numberOfUAVs=config.number_of_uavs,
+        uavFlyPolicy=config.uav_fly_policy,
+        uavWaitingPolicy=config.uav_waiting_policy,
+        results_dir=results_dir,
+    )
 
-    plots = Plots(numberOfServers=numberOfServers,
-                  numberOfUsers=numberOfUsers,
-                  numberOfUAVs=numberOfUAVs,
-                  uavFlyPolicy=uavFlyPolicy,
-                  uavWaitingPolicy=uavWaitingPolicy)
-
-    for waitingTime in uavWaitingPolicy:
-        plots.getGeneralResults(waitingTime)
+    for waiting_time in config.uav_waiting_policy:
+        plots.getGeneralResults(waiting_time)
 
     plots.getEdgeUtilization()
     plots.getUAVUtilization()
     plots.getAvgServiceTime()
-    for userCount in numberOfUsers:
-        plots.getAppResults(userCount)
+    for user_count in config.number_of_users:
+        plots.getAppResults(user_count)
 
     plots.getNumberOfTasks()
-    for uavCount in numberOfUAVs:
-        plots.getEdgeCloudUAVRatio(uavCount)
+    for uav_count in config.number_of_uavs:
+        plots.getEdgeCloudUAVRatio(uav_count)
+
+    return plots
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Generate AirCompSim plots from CSV results")
+    parser.add_argument('--results-dir', type=str, default='.')
+    parser.add_argument('--preset', choices=['smoke', 'paper', 'custom'], default='paper')
+    args = parser.parse_args()
+
+    if args.preset == 'smoke':
+        config = ExperimentConfig.smoke()
+    elif args.preset == 'paper':
+        config = ExperimentConfig.paper()
+    else:
+        config = ExperimentConfig()
+
+    generate_plots(config, args.results_dir)
 
 
 

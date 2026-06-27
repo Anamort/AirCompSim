@@ -1,7 +1,7 @@
 import random
 
 from Server import UAV, EdgeServer
-from main import SimulationBoundry
+from simulation_boundary import SimulationBoundry
 from random import randrange
 from User import User
 from Location import Location

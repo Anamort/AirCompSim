@@ -1,0 +1,5 @@
+numpy==1.26.4
+pandas==1.5.2
+matplotlib==3.6.2
+torch==2.2.0
+streamlit>=1.28.0
