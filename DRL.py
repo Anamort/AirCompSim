@@ -21,7 +21,12 @@ import shutil
 
 torch.set_default_dtype(torch.float64)
 
-device = torch.device('mps')
+if torch.backends.mps.is_available():
+    device = torch.device('mps')
+elif torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
 class State(object):
     id: int = 0
 

@@ -1,0 +1,26 @@
+# Python
+.venv/
+venv/
+venvnew/
+venvBug/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+
+# IDE
+.idea/
+
+# Simulation outputs
+results/
+AirSim.log
+*.csv
+*.pdf
+!images/*.pdf
+!images/*.png
+
+# DRL model artifacts
+*-Model-*.pt
+
+# OS
+.DS_Store

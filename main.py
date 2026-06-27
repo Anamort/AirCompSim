@@ -22,22 +22,11 @@ from DQN import DQNAgent
 from DDQN import DDQNAgent
 import random
 
-
-# Simulation Boundries are get from this class
-class SimulationBoundry(object):
-    def __init__(self, x, y, z):
-        self.maxX = x
-        self.maxY = y
-        self.maxZ = z
-
-    def isInBoundry(self, x, y, z):
-        if x <= self.maxX and y <= self.maxY and z <= self.maxZ and x >= 0 and y >= 0 and z >= 0:
-            return True
-        return False
+from simulation_boundary import SimulationBoundry
 
 
 class Simulation(object):
-    def __init__(self, userCount, edgeCount, uavCount, testNumber, flyPolicy, waitingPolicy, userMobilityPolicy, agent, uavRadius, seedNo, isDRLTraining, locations):
+    def __init__(self, userCount, edgeCount, uavCount, testNumber, flyPolicy, waitingPolicy, userMobilityPolicy, agent, uavRadius, seedNo, isDRLTraining, locations, timeLimit=1000, generateEdgeRadiusPlot=False, outputDir=None):
         self.simulationTime = 0
         self.eventQueue = []  # heap of events
         self.boundry = SimulationBoundry(400, 400, 400)
@@ -69,6 +58,9 @@ class Simulation(object):
 
         self.uavRadius = uavRadius
         self.seedNo = seedNo
+        self.timeLimit = timeLimit
+        self.generateEdgeRadiusPlot = generateEdgeRadiusPlot
+        self.outputDir = outputDir
 
 
         self.successTaskCountForEpisode = 0
@@ -87,7 +79,7 @@ class Simulation(object):
 
     def StartSimulation(self):
         simulationTime: float = 0.1
-        timeLimit: float = 1000
+        timeLimit: float = self.timeLimit
         timeStepForUsers = 2
         stateInterval = timeStepForUsers + 1  # stateInterval is used for consecutive states for DRL
 
@@ -101,7 +93,9 @@ class Simulation(object):
                                UAVWaitingPolicy=self.uavWaitingPolicy,
                                testNo=self.testNumber,
                                uavRadius=self.uavRadius,
-                               scenario="BasicEdge")
+                               scenario="BasicEdge",
+                               generateEdgeRadiusPlot=self.generateEdgeRadiusPlot,
+                               outputDir=self.outputDir)
         simScenario.basicEdgeScenario()
 
 
@@ -622,7 +616,7 @@ class Simulation(object):
 
                             if self.isState:
                                 index = 0
-                                for anAgent in agent: # considering multiple agents
+                                for anAgent in self.agent: # considering multiple agents
                                     MemoryItem(state=self.state,
                                                nextState=currentState,
                                                reward=anAgent.reward,
@@ -733,7 +727,7 @@ class Simulation(object):
         for uav in UAV.uavs:
             utilization = uav.getUtilization(timeLimit)
             uavResults["UAVUtilization"].append(utilization)
-            uavResults["Trajectory"].append(utilization)
+            uavResults["Trajectory"].append(uav.getTrajectory())
 
         appResults = pd.DataFrame(appResults)
         edgeResults = pd.DataFrame(edgeResults)
@@ -749,156 +743,52 @@ class Simulation(object):
 
 
 if __name__ == '__main__':
-    '''
-        AirCompSim can be run from here. You can add parsers as follows, however the existing version get those information
-        from lists. Even though lists such as numberOfUsers, numberOfUAVs is set from here, Scenario module can also be used to
-        for this purpose. Some of these will be changed in the next versions of AirCompSim.
-    '''
     import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--userC', type=int, required=False)
-    parser.add_argument('--locN', type=int, required=False)
+    from experiment_config import ExperimentConfig
+    from experiment_runner import run_experiment
+    from Plots import generate_plots
+
+    parser = argparse.ArgumentParser(description="Run AirCompSim experiments")
+    parser.add_argument('--preset', choices=['smoke', 'paper', 'custom'], default='paper')
+    parser.add_argument('--repeat-count', type=int, default=None)
+    parser.add_argument('--seed', type=int, default=None)
+    parser.add_argument('--output-dir', type=str, default=None)
+    parser.add_argument('--write-root-csvs', action='store_true')
+    parser.add_argument('--plot', action='store_true')
+    parser.add_argument('--userC', type=int, required=False, help='Legacy flag kept for compatibility')
     args = parser.parse_args()
-    #print("Arfs: ", args.userC)
 
-    numberOfUsers = [20, 40, 60, 80, 100] #[args.userC]
-    numberOfServers = [4]
-    numberOfUAVs = [0, 5, 10, 15, 20]
-    uavWaitingPolicy = [100]
-
-    #edgeServerRadius = [50, 100, 150, 200]
-    uavRadius = [100] #[10, 15, 20, 25, 30]
-    isDRL = False
-    isDRLTraining = False
-    locationsDRL = []
-    numberOfLocations = 3
-    if args.locN:
-        numberOfLocations = args.locN
-
-
-    userMobilityPolicy = ["Mobile"]  # Nomadic, Mobile
-    numberOfEpisodes = 500  # this can also be used as number of episodes in the simulator
-    repeatCount = 1
-    simulationCount = 1
-    print("Simulation is starting...")
-    logging.basicConfig(filename="AirSim.log", level=logging.INFO)
-    # logging.basicConfig(filename="AirSimDebug.log", level=logging.DEBUG)
-    logging.disable(logging.INFO)
-    logging.info("Simulation log is started")
-    # logging.disable(logging.DEBUG)
-
-
-    drlScores = []
-    agent = []  # multiple-agent solutions can be investigated in this way
-
-    edgeResults = pd.DataFrame()
-    appResults = pd.DataFrame()
-    uavResults = pd.DataFrame()
-    scenarioResults = pd.DataFrame()
-
-
-    searcherUAVLocations = []
-    single_searcherUAVLocations = []
-
-
-
-    for seedNumber in range(0, 1):
-
-
-        if isDRLTraining: # isDRL
-            agent = []  # multiple-agent solutions can be investigated in this way
-            #connectionThreshold = 5 # 1: worst case, take everyone!
-            detectedLocations = []
-
-            highestScore = -10000
-            anAgent = DDQNAgent(state_size=2, action_size=5)
-            agent.append(anAgent)
-            results = pd.DataFrame()
-            singleEpisodeResults = []
-            for _ in range(numberOfEpisodes):
-                simulation = Simulation(userCount=numberOfUsers[0],
-                                        edgeCount=1,
-                                        testNumber=simulationCount,
-                                        uavCount=1,
-                                        flyPolicy="DRL",
-                                        waitingPolicy=100,
-                                        userMobilityPolicy="Fixed",
-                                        agent=agent,
-                                        uavRadius=uavRadius[0],
-                                        seedNo=seedNumber,
-                                        isDRLTraining=isDRLTraining,
-                                        locations=detectedLocations)
-
-                simResultsTraining = simulation.StartSimulation()
-                #print("Result of seedNo ", seedNumber, " is calculating...")
-                appResultsTrainingDf = simResultsTraining[0]
-                singleEpisodeResults.append(appResultsTrainingDf["DRLScore"][0])
-                if "DRLScore" in appResultsTrainingDf.columns and len(appResultsTrainingDf) > 0 and appResultsTrainingDf["DRLScore"][0] > highestScore:
-                    highestScore = appResultsTrainingDf["DRLScore"][0]
-                    results = appResultsTrainingDf
-
-
-        uavFlyPolicy = ["LSI"]
-
-        totalSims = len(numberOfUsers) * len(numberOfServers) * len(numberOfUAVs) * len(uavFlyPolicy) * len(
-            uavWaitingPolicy) * repeatCount * len(uavRadius)
-
-
-        for anUavFlyingPolicy in uavFlyPolicy:
-            for anUavWaitingPolicy in uavWaitingPolicy:
-                for aUserMobilityPolicy in userMobilityPolicy:
-                    for edgeCount in numberOfServers:
-                        for uavCount in numberOfUAVs:
-                            for userCount in numberOfUsers:
-                                for _ in range(repeatCount):
-                                    logging.info("Simulation %s has been started.", str(simulationCount))
-                                    print("For userCount", userCount, " simulation ", simulationCount, " has been started...")
-                                    simulation = Simulation(userCount=userCount,
-                                                            edgeCount=edgeCount,
-                                                            testNumber=simulationCount,
-                                                            uavCount=uavCount,
-                                                            flyPolicy=anUavFlyingPolicy,
-                                                            waitingPolicy=anUavWaitingPolicy,
-                                                            userMobilityPolicy=aUserMobilityPolicy,
-                                                            agent=agent,
-                                                            uavRadius=uavRadius[0],
-                                                            seedNo=seedNumber,
-                                                            isDRLTraining=False,
-                                                            locations=locationsDRL)
-                                    simResults = simulation.StartSimulation()  # it returns dataframes in an arraylist
-                                    # simResults.append(simResultDf)
-                                    appResultsDf = simResults[0]
-                                    edgeResultsDf = simResults[1]
-                                    uavResultsDf = simResults[2]
-                                    scenarioResultsDf = simResults[3]
-
-                                    edgeResults = pd.concat([edgeResults, edgeResultsDf])
-                                    appResults = pd.concat([appResults, appResultsDf])
-                                    uavResults = pd.concat([uavResults, uavResultsDf])
-                                    scenarioResults = pd.concat([scenarioResults, scenarioResultsDf])
-                                    logging.info("Simulation %s finished", str(simulationCount))
-                                    print("For userCount", userCount, " simulation ", simulationCount, " is finished.")
-                                    print("% ", (simulationCount / totalSims) * 100, " is completed")
-                                    print(" ")
-                                    print("*********************************************")
-                                    print(" ")
-                                    simulationCount += 1
-
-
-
-    # if isDRL and isDRLTraining:
-    #     for anAgent in agent:
-    #         anAgent.saveModel()
-
-    # plots, statistics etc.
-    if args.userC:
-        appResults.to_csv("AppResults_Users_"+str(args.userC)+".csv")
+    if args.preset == 'smoke':
+        config = ExperimentConfig.smoke()
+    elif args.preset == 'paper':
+        config = ExperimentConfig.paper()
     else:
-        appResults.to_csv("AppResults.csv")
-    edgeResults.to_csv("EdgeResults.csv")
-    uavResults.to_csv("UavResults.csv")
-    scenarioResults.to_csv("ScenarioResults.csv")
+        config = ExperimentConfig()
+
+    if args.repeat_count is not None:
+        config.repeat_count = args.repeat_count
+    if args.seed is not None:
+        config.seed = args.seed
+    if args.output_dir:
+        config.output_dir = args.output_dir
+    if args.userC:
+        config.number_of_users = [args.userC]
+    config.write_root_csvs = args.write_root_csvs
+    if args.preset == 'paper':
+        config.generate_edge_radius_plot = True
+
+    print(f"Simulation is starting ({config.total_simulations()} runs)...")
+
+    def progress(current, total, message):
+        print(f"[{current}/{total}] {message}")
+
+    _, _, _, _, output_dir = run_experiment(config, progress_callback=progress)
+    print(f"Results written to {output_dir}")
+
+    if args.plot:
+        generate_plots(config, output_dir)
+        print(f"Plots written to {output_dir}")
 
 
 
